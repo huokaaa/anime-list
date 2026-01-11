@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anime Watch List</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+.slide-down {
+  animation: slideDown .25s ease forwards;
+}
+@keyframes slideDown {
+  from { opacity:0; transform: translateY(-10px); }
+  to { opacity:1; transform: translateY(0); }
+}
+.slide-in {
+  animation: slideIn .35s ease forwards;
+}
+@keyframes slideIn {
+  from { opacity:0; transform: translateY(18px); }
+  to { opacity:1; transform: translateY(0); }
+}
+</style>
+</head>
+
+<body class="bg-zinc-900 text-zinc-100 min-h-screen">
+
+<!-- HEADER -->
+<header class="px-4 py-3 border-b border-zinc-700 flex justify-between items-center">
+  <div>
+    <h1 class="font-bold text-lg">Anime Watch List</h1>
+    <p class="text-xs text-zinc-400">List anime</p>
+  </div>
+
+  <div class="flex gap-2 relative">
+    <button onclick="toggleSort()"
+      class="w-9 h-9 rounded-full bg-zinc-800 hover:bg-zinc-700 text-lg">☰</button>
+
+    <button onclick="toggleForm()"
+      class="w-9 h-9 rounded-full bg-blue-500 hover:bg-blue-600 text-xl font-bold">+</button>
+
+    <div id="sortMenu"
+      class="hidden absolute right-0 top-11 w-44 bg-zinc-800 border border-zinc-700 rounded-lg shadow slide-down z-50">
+      <button onclick="setSort('date')" class="block w-full px-3 py-2 text-left hover:bg-zinc-700 text-sm">Tanggal ditambahkan</button>
+      <button onclick="setSort('rating')" class="block w-full px-3 py-2 text-left hover:bg-zinc-700 text-sm">Rating tertinggi</button>
+      <button onclick="setSort('alpha')" class="block w-full px-3 py-2 text-left hover:bg-zinc-700 text-sm">Alfabet (A–Z)</button>
+    </div>
+  </div>
+</header>
+
+<!-- FORM -->
+<div id="formWrap" class="hidden px-4 py-4 bg-zinc-800 border-b border-zinc-700">
+  <div class="space-y-2 slide-down">
+    <input id="title" placeholder="Judul anime" class="w-full px-3 py-2 rounded bg-zinc-900 border border-zinc-700">
+    <input id="rating" type="number" step="0.1" placeholder="Rating (0–10)" class="w-full px-3 py-2 rounded bg-zinc-900 border border-zinc-700">
+    <textarea id="desc" rows="2" placeholder="Deskripsi singkat" class="w-full px-3 py-2 rounded bg-zinc-900 border border-zinc-700"></textarea>
+
+    <button onclick="addAnime()" class="w-full py-2 rounded bg-blue-500 hover:bg-blue-600 font-semibold">Simpan</button>
+  </div>
+</div>
+
+<!-- LIST -->
+<div id="list" class="p-4 space-y-3"></div>
+
+<script>
+let sortMode = "date";
+
+let animeList = JSON.parse(localStorage.getItem("animeList")) || [];
+const listEl = document.getElementById("list");
+const formWrap = document.getElementById("formWrap");
+const sortMenu = document.getElementById("sortMenu");
+
+function toggleForm() {
+  formWrap.classList.toggle("hidden");
+  sortMenu.classList.add("hidden");
+}
+function toggleSort() {
+  sortMenu.classList.toggle("hidden");
+}
+function setSort(mode) {
+  sortMode = mode;
+  sortMenu.classList.add("hidden");
+  render();
+}
+function save() {
+  localStorage.setItem("animeList", JSON.stringify(animeList));
+}
+
+function sortList(list) {
+  if (sortMode === "rating") return [...list].sort((a,b)=>(b.rating||0)-(a.rating||0));
+  if (sortMode === "alpha") return [...list].sort((a,b)=>a.title.localeCompare(b.title));
+  return [...list].sort((a,b)=>b.date-a.date);
+}
+
+/* ===== DATE HELPERS ===== */
+function formatDate(ts) {
+  return new Date(ts).toLocaleDateString("id-ID", {
+    day:"2-digit", month:"short", year:"numeric"
+  });
+}
+function timeAgo(ts) {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+
+  if (diff < 60) return "baru saja";
+
+  const minute = 60;
+  const hour = minute * 60;
+  const day = hour * 24;
+  const week = day * 7;
+  const month = day * 30;
+  const year = day * 365;
+
+  if (diff < hour) return Math.floor(diff / minute) + " menit lalu";
+  if (diff < day) return Math.floor(diff / hour) + " jam lalu";
+  if (diff < week) return Math.floor(diff / day) + " hari lalu";
+  if (diff < month) return Math.floor(diff / week) + " minggu lalu";
+  if (diff < year) return Math.floor(diff / month) + " bulan lalu";
+  return Math.floor(diff / year) + " tahun lalu";
+}
+
+function ratingColor(r) {
+  if (typeof r !== "number") return "text-zinc-400";
+
+  if (r === 0) return "text-zinc-400";   // 0 → abu-abu
+  if (r >= 7) return "text-blue-400";    // 7–10 → biru
+  if (r >= 5) return "text-yellow-400";  // 5–6 → kuning
+  return "text-red-500";                 // 1–4 → merah
+}
+
+function render() {
+  listEl.innerHTML = "";
+
+  sortList(animeList).forEach((a, i) => {
+    const invalid = a.rating < 0 || a.rating > 10;
+
+    listEl.innerHTML += `
+    <div class="bg-zinc-800 rounded-xl p-4 shadow slide-in">
+
+      <div class="flex justify-between gap-3">
+
+        <!-- LEFT -->
+        <div>
+          <h2 class="font-semibold text-sm">${a.title}</h2>
+          <p class="text-xs text-zinc-400 mt-1">${a.desc || ""}</p>
+          <p class="text-xs text-green-400 mt-2">${timeAgo(a.date)}</p>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="flex flex-col justify-between items-end">
+
+          <!-- DELETE -->
+          <button onclick="removeAnime(${i})"
+            class="text-red-500 hover:text-red-600 font-bold leading-none">
+            ✕
+          </button>
+
+          <!-- RATING -->
+          <span class="text-xs whitespace-nowrap ${ratingColor(a.rating)}">
+          ${a.rating} /10
+          </span>
+
+        </div>
+
+      </div>
+    </div>`;
+  });
+}
+
+function addAnime() {
+  const title = document.getElementById("title");
+  const rating = document.getElementById("rating");
+  const desc = document.getElementById("desc");
+
+  if (!title.value.trim()) return alert("Judul kosong");
+
+  animeList.unshift({
+    title: title.value.trim(),
+    rating: rating.value === "" ? "-" : parseFloat(rating.value),
+    desc: desc.value.trim(),
+    date: Date.now()
+  });
+
+  save();
+  render();
+  toggleForm();
+
+  title.value = rating.value = desc.value = "";
+}
+
+function removeAnime(i){
+  animeList.splice(i,1);
+  save(); render();
+}
+
+render();
+</script>
+
+</body>
+</html>
